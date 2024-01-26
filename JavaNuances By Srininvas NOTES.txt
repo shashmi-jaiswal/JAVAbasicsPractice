@@ -1,0 +1,457 @@
+
+List of some potentially tricky aspects of Java programming to get mastery on Java language:
+
+1. Generics:
+     generics enable types (classes and interfaces) to be parameters when defining classes, interfaces and methods
+   Benefits:
+    * Stronger type checks at compile time.
+    * Elimination of casts
+        List<String> list = new ArrayList<String>();
+        list.add("hello");
+        String s = list.get(0);   // no cast, otherwise (String) list.get(0);
+    * Enabling programmers to implement generic algorithms
+      - can implement generic algorithms that work on collections of different types, can be customized, and are type safe and easier to read.
+   Explanation:  They add type-safe data structures to collections and other data structures enusing compiletime checking of data types. It allows a class, interface, or method to operate on a typed parameter.
+   Caveats: Introduced in Java 5,  their wildcard syntax (? extends T, ? super T) and type erasure can be confusing.
+   Real-world Applications: Imagine a list that can only accept Employee objects. With generics, you can ensure no other data types are added to this list, thus eliminating possible runtime errors.
+    Consider a container that can store any type of item. Now, with generics, you can specifically design containers for, say, apples, oranges, or books, ensuring that only the correct item type goes into the respective container
+    * Illustration 1: Without generics, you might put an apple into a container meant for oranges. With generics, the container can be designed specifically for apples (Container<Apple>), ensuring no mistakes.
+    * Illustration 2: The syntax like ? extends T is known as a wildcard with an upper bound. Imagine a scenario where you want a container that can hold not only books but also special categories of books like fiction or non-fiction. Here, ? extends Book would allow for a container that can hold any subtype of book.
+
+  
+
+   Code: Typed parameters
+public class Box<T> {
+    private T item;
+
+    public void set(T item) {
+        this.item = item;
+    }
+
+    public T get() {
+        return item;
+    }
+}
+
+Box<String> stringBox = new Box<>();
+stringBox.set("Hello Generics");
+
+Note:
+ - Typed variable/parameter is any single capital char and any non-primitive type, (typed arg can be a primitive)
+ Box<T> is typed paramter
+ Box<Integer> box; Integer is a typed argument
+
+public interface Pair<K, V> {
+    public K getKey();
+    public V getValue();
+}
+public class OrderedPair<K, V> implements Pair<K, V> {
+
+    private K key;
+    private V value;
+
+    public OrderedPair(K key, V value) {
+	this.key = key;
+	this.value = value;
+    }
+
+    public K getKey()	{ return key; }
+    public V getValue() { return value; }
+}
+
+Instantiation:
+Pair<String, Integer> p1 = new OrderedPair<String, Integer>("Even", 8);
+Pair<String, String>  p2 = new OrderedPair<String, String>("hello", "world");
+
+OR
+OrderedPair<String, Integer> p1 = new OrderedPair<>("Even", 8);
+OrderedPair<String, String>  p2 = new OrderedPair<>("hello", "world");
+
+possible to substitute type parameter K or V with parameterized type
+
+OrderedPair<String, Box<Integer>> p = new OrderedPair<>("primes", new Box<Integer>(...));
+
+Type inference: compiler infer the type as needed
+
+Bounded Type Params: to restrict types that can be used as type arguments in a parameterized type
+
+General methods bounded type params:
+
+public static <T extends Comparable<T>> int countGreaterThan(T[] anArray, T elem) {
+    int count = 0;
+    for (T e : anArray)
+        if (e.compareTo(elem) > 0)
+            ++count;
+    return count;
+}
+Compiler takes advantage of target type to infer the type parameters of a generic method invocation
+
+Consider the method Collections.emptyList, which is declared as follows:
+
+static <T> List<T> emptyList();
+
+acceptable
+  List<String> listOne = Collections.<String>emptyList();
+  List<String> listOne = Collections.<>emptyList();
+From Java 8: processStringList(Collections.emptyList()); is possible
+
+T can extend interfaces if their concrete impl needs to be implemented by the parameterized class method
+
+
+list<Animal>; list<X>
+FYI: <X> for compiler to be able to provide type safety
+   - <X> removed at runtime, at runtime it is only a list
+
+<Dog> is a child of <Animal> but List<Dog> is not a child of List<Animal>
+Bounds
+      List<T extends Animal> can be a parent of List<Dog>, List<Cat>, etc.
+      compiler can verify it
+      - extends interface # 
+      - extends class # 
+     method(List<T extends Animal>) # Here T is read-only
+     method(List<T super Animal>) # Here T can be RW as we are dealing with supers only
+      super is lower-bound; sub is upper-bound # can be subs or sub-sub of Dogs for Animal
+
+Upper Bounded:
+ - can use an upper bounded wildcard to relax the restrictions on a variable
+ - if a method wants to use List<Integer>, List<Double>, List<Number>, extends can be used List<? extends Number>
+
+Unbounded wildcards: Ex: List<?> are used in scenarios:
+ - writing a method that can be implemented using functionality provided by `Object` class
+ - code is using generic methods in generic class not depedent on typed params
+
+Lower bound is expressed as <? super lowerboundclass>
+
+
+public class WildcardFixed {
+
+    void foo(List<?> i) {
+        fooHelper(i);
+    }
+
+
+    // Helper method created so that the wildcard can be captured
+    // through type inference.
+    private <T> void fooHelper(List<T> l) {
+        l.set(0, l.get(0));
+    }
+
+}
+
+Wildcard Guidelines: 
+An "in" variable is defined with an upper bounded wildcard, using the extends keyword.
+An "out" variable is defined with a lower bounded wildcard, using the super keyword.
+In the case where the "in" variable can be accessed using methods defined in the Object class, use an unbounded wildcard.
+In the case where the code needs to access the variable as both an "in" and an "out" variable, do not use a wildcard.
+
+
+Type Erasure
+ - the removal of the data types of parameters at runtime for generics
+studentInfo.getClass().getname();
+ at runtime, generic params are ignored, only supers are known
+ at runtime, removal of param types is "Type Erasure"
+
+Scenario: S1 queries S2, gets json response back
+          S1 needs to convert json back to object type (<Animal>)
+   getAllProducts() returns a list of objects as json # request.get(URL, list<Product>.class)
+     - lists just the list of objects which simplifies things
+https://docs.oracle.com/javase/tutorial/java/generics/why.html
+How to decide # of threads in a multi-threaded code ?
+   - not on # of cores
+   - types of tasks # goal is a CPU is properly utilized
+      1. CPU-intensive task  == 2 * # cores (hyperthreading)
+      2. IO-intensive task > 2 * # cores # only way possible is profiling
+----
+
+2. Concurrency:
+  - Java Memory Model (JMM):
+      Explanation:  It defines rules for reading/writing variables in multithreading applications and  how and when these changes to variables are visible to other threads and interact with each other. It's essential for writing correct concurrent code.
+      Application: Database systems might use JMM to ensure consistency when multiple threads try to read/write data simultaneously.
+  - Synchronization: While synchronized keyword helps make methods or blocks of code thread-safe, it's essential to understand its performance implications and potential for deadlocks.
+      Explanation:  Ensures that shared resources are exclusively accessed by one thread at a time
+      Application:  In online ticket booking systems, synchronization ensures that two users don't book the same seat simultaneously
+  - Locks and other concurrency utilities: Java's java.util.concurrent package provides many sophisticated tools for concurrency, but they require a good understanding to use correctly.
+      Explanation:  More advanced mechanism than synchronized for controlling access.
+      Applications::  An e-commerce site might use locks to manage inventory levels during flash sales.
+        Illustration 1: A bathroom with a digital lock that shows if it's occupied, leaving you with a choice to wait or come back later
+
+   Code: Simulate parallelism or execute in parallel
+Runnable task = () -> System.out.println("Task executed by " + Thread.currentThread().getName());
+Thread thread = new Thread(task);
+thread.start();
+
+----
+
+3. Exceptions:
+  - Checked vs. Unchecked Exceptions: Understanding when to use each and why Java has both can be tricky.
+   Explanation: Checked exceptions are those that are checked at compile-time, while unchecked exceptions are checked at runtime.
+   Application: Imagine building a house. Some issues, like not having the required permits (checked exceptions), will prevent you from even starting the construction. Other issues, like discovering a leak after a rainfall (unchecked exception), only show up after you've moved in.
+     * Illustration 1: Before starting a car (compiling a program), you're warned that the fuel is low (a checked exception). An unchecked exception is like the car suddenly breaking down while driving because of an unexpected engine issue.
+     * Illustration 2: Reading a book and finding a page missing is like an unchecked exception. Knowing beforehand that the book has 300 pages and ensuring you have enough time to read is like a checked exception.
+  - Exception chaining: This involves wrapping one exception inside another, which can sometimes obscure the root cause of an error.
+
+   Code: Handle and signal error conditions
+try {
+    int result = 10 / 0;
+} catch (ArithmeticException e) {
+    System.out.println("Cannot divide by zero!");
+}
+
+----
+
+4. Java ClassLoader:
+   Explanation: The Java ClassLoader is a part of the Java Runtime Environment (JRE) that dynamically loads Java classes into the Java Virtual Machine (JVM). It doesn't load all classes at startup; instead, it loads them as required.
+   Caveats: Understanding how the ClassLoader works, especially when dealing with frameworks, JVM-based languages, or application servers, is essential.
+   Real-world Application: Think of the ClassLoader as a librarian fetching books (classes) for you.
+     Illustration 1: Imagine going to a library. You don't bring all books to your table. You bring them one by one as you need.
+     Illustration 2: An on-demand movie service. You don't download all movies; you stream/download one when you decide to watch it.
+
+   Code: Load classes into JVM dynamically
+ClassLoader classLoader = ClassLoader.getSystemClassLoader();
+Class<?> loadedClass = classLoader.loadClass("java.lang.String");
+
+----
+
+5. Reflection:
+   Explanation: Reflection allows a program to inspect and manipulate its internal properties at runtime.
+   Caveats: It allows Java code to introspect and manipulate itself. It's powerful but can lead to complex code and unexpected side effects if not used carefully.
+   Real-world Application: Think of reflection as having a mirror to look at yourself and adjust your appearance.
+     Illustration 1: Using a mirror (reflection) to adjust your tie or hairstyle.
+     Illustration 2: A car with sensors that notify you about any malfunctions or needed adjustments.
+
+   Code: Inspect and manipulate classes, methods, fields, annotations, etc. at runtime.
+Class<?> clazz = String.class;
+Method method = clazz.getMethod("length");
+int length = (int) method.invoke("Hello");
+
+----
+
+6. JVM optimizations and Garbage Collection (GC):
+
+   Explanation: Java automates memory management through a process called garbage collection. It automatically deletes objects that are no longer in use.
+   Caveats: Understanding the different garbage collection algorithms, how to tune them, and how the JVM optimizes code can be challenging.
+   Real-world Application: Imagine a self-cleaning robot in a room that picks up any waste.
+     Illustration 1: A dishwasher that automatically cleans the dishes once they're placed inside.
+     Illustration 2: A self-emptying vacuum cleaner.
+   Algorithm: Mark and Sweep:
+
+    Mark and Sweep is an algorithm associated with garbage collection in programming languages, including Java.
+The process involves two main phases:
+      Mark Phase: During this phase, the garbage collector identifies which pieces or objects are still in use by your program. Every object that can be reached is "marked" as in use.
+      Sweep Phase: After the marking phase, the collector will go through the heap and remove or "sweep away" all unmarked objects, reclaiming the memory.
+
+   This algorithm has nothing to do with thread safety or atomic operations.
+
+   Code: JVM optimizes byte code, and GC cleans up memory that is no longer in use
+String largeString = new String(new char[1000000]);
+largeString = null;  // Suggests the JVM that this memory can be garbage collected.
+
+----
+
+7. Annotations:
+   Explanation: Annotations provide metadata about the program that is not part of the program itself. They have no direct effect on the operation of the code they annotate.
+   Caveats: While they can simplify code and metadata definitions, understanding how and when to use them, and how they work under the hood, can be non-trivial.
+   Real-world Application: Think of annotations as sticky notes on a document.
+     Illustration 1: A researcher highlighting or marking important points in a research paper.
+     Illustration 2: Editors leaving comments or instructions on a draft manuscript.
+
+   Code: Metadata that provides data about a program that isn't part of the program itself
+@Override
+public String toString() {
+    return "Annotation example";
+}
+
+----
+
+8. Lambdas Expressions:
+   Explanation: Lambdas represent small chunks of code that can be passed around as if they were data. They're particularly useful when performing operations over collections.
+   Caveats:  Introduced in Java 8, they allow for a more functional style of programming but come with their own set of nuances.
+   Real-world Application: Think of a lambda as a mini-instruction manual you give to a machine in a factory assembly line.
+      Illustration 1: In a factory, you have a machine that paints objects. One day, you might give it a manual (lambda) to paint objects red; the next day, blue. You don’t change the machine, just the instruction.
+      Illustration 2: A shopping list (lambda) you give to a personal shopper (method). The list dictates what they should buy.
+
+   Code: Concise way to represent a functional interface
+Runnable run = () -> System.out.println("Running a lambda");
+run.run();
+
+OR
+
+(param1, param2, ...) -> { body }
+
+----
+
+9.  Functional Interfaces:
+   Explanation: These are interfaces with just one abstract method, and they can have multiple default or static methods. Common examples are Runnable, Callable, Predicate, and Function.
+   Real-world Application: Consider functional interfaces as job roles with a single primary duty.
+     Illustration 1: A chef's primary duty is to cook. No matter where they work, that duty remains the same, although they might have secondary tasks.
+     Illustration 2: A security guard’s primary duty is to guard. The location or company might change, but that duty remains.
+
+   Code:  Interface with only one abstract method
+@FunctionalInterface
+interface Greeting {
+    void sayHello(String name);
+}
+
+----
+
+10. Java Modules (JPMS):
+   Explanation: This system allows developers to modularize their applications and libraries. It helps in encapsulating code and improving security and performance. Each module can specify which other modules it requires and which packages it exports for others to use.
+   Caveats: Introduced in Java 9, the Java Platform Module System restructures the JDK into modules. It can be challenging to understand module paths, visibility rules, and how it affects older code.
+   Real-world Application: Think of it as organizing a library into specific sections, with each section (module) containing books (classes) on a specific topic.
+     Illustration 1: A library where the science section only has science books and doesn't allow fiction books.
+     Illustration 2: A modular kitchen where each module (e.g., drawers, cabinets) has a specific purpose and content.
+
+   Code: Helps modularize the Java platform
+// module-info.java
+module com.example {
+    requires java.base;
+}
+
+----
+
+11. NIO (New Input/Output):
+   Explanation: Java's NIO APIs provide non-blocking I/O operations, allowing resources (like files and sockets) to be read/written asynchronously.
+   Caveats: Provides non-blocking IO operations. It's more efficient than traditional IO but has a steeper learning curve.
+   Real-world Application: Imagine a call center that can handle multiple calls simultaneously without putting anyone on hold.
+     Illustration 1: A multi-lane highway where vehicles can move without waiting for each other.
+     Illustration 2: A supermarket with multiple checkout counters operating concurrently.
+
+   Code:  A set of I/O APIs for reading/writing to non-blocking I/O channels
+Path path = Paths.get("example.txt");
+List<String> lines = Files.readAllLines(path);
+
+----
+
+12. Proxying and Bytecode Manipulation:
+   Explanation: Proxying creates objects that act as intermediaries between the client and the actual object, often adding or modifying behavior. Bytecode manipulation allows modification of class bytecode at runtime.
+   Caveats: Libraries like CGLIB or ByteBuddy allow for creating dynamic proxies or modifying classes at runtime. Understanding when and why to use these techniques can be challenging.
+   Real-world Application: Think of proxying as using an interpreter to communicate in a foreign country.
+     Illustration 1: An assistant who screens and forwards your calls.
+     Illustration 2: Editing a movie reel to change scenes in a film.
+
+   Code: Create proxy classes or modify bytecode
+List<String> list = new ArrayList<>();
+List<String> proxy = (List<String>) Proxy.newProxyInstance(
+    List.class.getClassLoader(), 
+    new Class[] { List.class }, 
+    new InvocationHandler() {
+        @Override
+        public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
+            // Intercepting method calls.
+            return method.invoke(list, args);
+        }
+    });
+
+----
+
+13. Type Inference with var (Java 10+):
+   Explanation: With 'var', Java can infer the type of the variable from its initializer, reducing verbosity.
+   Caveats: While it simplifies code by removing explicit type definitions, it can make the code less readable if overused.
+   Real-world Application: Like a self-adjusting tool that fits different nuts/bolts without you specifying the size.
+     Illustration 1: A smartphone adjusting screen brightness based on ambient light.
+     Illustration 2: A self-filling form that determines input types based on context.
+
+   Code:  Local-variable type inference
+var message = "Hello, Java 10!";
+System.out.println(message);
+
+
+----
+
+14. Java Native Interface (JNI):
+   Explanation: JNI allows Java code to interact with applications and libraries written in other languages, such as C or C++.
+   Caveats: Allows Java code to interface with native libraries written in languages like C or C++. It's powerful but can be tricky due to the blending of Java's managed environment with unmanaged native code.
+   Real-world Application: It's like a universal translator device in sci-fi movies.
+     Illustration 1: Someone using a translation app to converse with people in different languages.
+     Illustration 2: An adapter that allows you to use an appliance (from a different country) with your local power socket
+
+   Code: Enables Java code to interact with native applications and libraries
+// Not a full example, but a hint:
+public native void nativeMethod();
+static {
+    System.loadLibrary("NativeLibrary");
+}
+
+----
+
+15. Immutable vs. Mutable Objects:
+   Explanation: Immutable objects can't be changed after they're created. Mutable objects can be modified after creation
+   Caveats: Understanding the implications of using mutable objects, especially in concurrent scenarios, and the benefits of immutability.
+   Real-world Application: Compare a written contract (immutable) to a digital document that can still be edited (mutable)
+     Illustration 1: A sealed letter vs. a draft email.
+     Illustration 2: A sculpted clay statue (immutable) vs. clay in its raw form (mutable).
+
+   Code:  Immutable objects can't be modified after creation, while mutable objects can
+// Immutable
+String hello = "Hello";
+hello.concat(", World");  // Doesn't modify "hello", instead returns a new string.
+
+// Mutable
+StringBuilder builder = new StringBuilder("Hello");
+builder.append(", World");  // Modifies the original builder object.
+
+----
+
+16. Streams API:
+   Explanation: A stream represents a sequence of elements and supports different operations to perform computations upon those elements.
+   Caveats: While it provides a functional approach to data manipulation, understanding intermediate vs. terminal operations, the inner workings of reductions, and the lazy nature of streams is crucial.
+   Real-world Application: Consider streams as conveyor belts in a factory, where items (data) are processed (transformed, filtered) as they move along.
+     Illustration 1: A conveyor belt in a fruit sorting factory. As fruits move, bad ones are removed, and the good ones are sized and packed.
+     Illustration 2: An assembly line for cars. Each station adds or modifies a part.
+
+   Code: Processes sequences of elements (e.g., collections) in a functional style
+List<String> names = Arrays.asList("Anna", "Bob", "Charlie");
+names.stream()
+     .filter(name -> name.startsWith("A"))
+     .forEach(System.out::println);
+
+----
+
+17. JVM, JRE, JDK:
+   Explanation: JVM is the engine that runs the bytecode. JRE is like the environment or the 'stadium' where the JVM 'plays'. JDK is a full toolkit that includes JRE and tools to compile and debug.
+   Real-world Application: Consider a theater performance.
+     Illustration 1: JVM is the actor, JRE is the stage + lights + sound, and JDK includes the backstage crew, scriptwriters, and directors.
+     Illustration 2: In a car race: JVM is the car, JRE is the race track, and JDK includes the pit crew, engineers, and team manager.
+
+   Code:  JVM executes Java byte code. JRE is JVM + libraries. JDK is JRE + development tools
+Not a code example but:
+JDK > JRE > JVM
+
+----
+
+18. Java Agents:
+   Explanation: Java agents are tools that can monitor, intercept, and modify the behavior of Java applications. They work by instrumenting bytecode at runtime.
+   Real-world Application: Consider Java agents as supervisors in a factory line.
+     Illustration 1: A supervisor observing workers and guiding them to improve efficiency.
+     Illustration 2: A quality check mechanism in a production line that checks and rectifies defects.
+
+   Code:  Instrument Java byte code
+// Not a full example, but a hint:
+public static void premain(String agentArgs, Instrumentation inst) {
+    // Byte code instrumentation logic here.
+}
+
+----
+
+19. Record Types (Java 14):
+   Explanation: Records provide a way to create simple immutable data classes without much boilerplate code.
+   Real-world Application: It's like a pre-filled form.
+     Illustration 1: When you go to a clinic, and you're given a form with sections already filled out, and you just need to provide specific details.
+     Illustration 2: A template for a resume where you just fill in personal details.
+
+   Code: Compact syntax for declaring classes which are transparent holders for shallowly immutable data
+record Point(int x, int y) {}
+----
+
+20. Pattern Matching for instanceof (Java 16):
+   Explanation: This simplifies the common coding pattern of testing an expression's type and then conditionally extracting components of its state for further processing.
+   Real-world Application: An automated sorting machine.
+     Illustration 1: A machine that sorts fruits checks if an item is an apple (instanceof check) and then processes it.
+     Illustration 2: At the airport, a scanner checks if an item in luggage is a liquid (instanceof check) and then takes appropriate action.
+
+   Code:  Enhanced instanceof operator
+Object obj = "Hello";
+if (obj instanceof String s) {
+    System.out.println(s.toLowerCase());
+}
+

@@ -1,0 +1,830 @@
+
+
+Spring Boot simplifies Java application development by offering a rapid setup via Starters, followed by a structured layering of web, service, and data components. It supports this foundation with features like security, AOP, and caching, and offers robust configuration options through properties and profiles. Comprehensive testing and logging mechanisms ensure quality and traceability. With tools like Actuator and DevTools, monitoring and local development become hassle-free, ensuring a seamless development-to-deployment journey.
+
+Patterns like Inversion of Control, Dependency Injection and modularized layering of web, service, data and business logic is there in FastAPI in python as well. Springboot is a bit more advanced framework each defined in its own classes and I summarized the features below:
+
+
+-----------------
+
+Topics: SpringBootApplication
+===================================================
+|24_pointBuildingBlocks|
+
+===================================================
+*24_pointBuildingBlocks*
+|1_Spring_Boot_Starters|
+|2_SpringApplication|
+|3_Application_Properties|
+|4_Web_Layer|
+|5_Service_Layer|
+|6_Data_Layer|
+|7_Beans|
+|8_Autoconfiguration|
+|9_Profiles| *Deprecate* to 21_Spring_Profiles
+|10_Logging|
+|11_AOP|(Aspect-Oriented Programming)
+|12_Spring_Security|
+|13_Spring_Data_JPA|
+|13a_DataTransferObject_DTO|
+|13b_ModelMapper|
+|13c_Configuration|
+|14_Caching|
+|15_Messaging|
+|16_RESTful_Web_Services|
+|17_Spring_Boot_Actuator|
+|18_Spring_Boot_DevTools|
+|19_WebSockets_with_Spring_Boot|
+|20_Spring_Boot_Admin|
+|21_Spring_Profiles|
+|22_Spring_Batch|
+|23_Property_Configuration|
+|24_Spring_Cloud|
+|25_ResponseEntity|
+|26_Test|
+
+
+ A Spring Boot application using the 24-point building blocks previously mentioned. I'll try to make it as clear and simple as possible.
+
+*1_Spring_Boot_Starters*
+Think of "Starters" like ready-to-use toy sets. Instead of buying individual toy pieces, you get a set that has everything you need to start playing.
+
+In Spring Boot, "Starters" are a set of convenient libraries that you can add to your project. For instance, if you want to create a web application, you just need to add the spring-boot-starter-web dependency.
+
+```xml
+
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-web</artifactId>
+</dependency>
+```
+
+----
+
+*2_SpringApplication*
+This is the entry point to our application. It's like turning on a toy to make it work.
+
+```java
+
+@SpringBootApplication
+public class ToyStoreApplication {
+    public static void main(String[] args) {
+        SpringApplication.run(ToyStoreApplication.class, args);
+    }
+}
+```
+
+`@SpringBootApplication` is a special sticker we put on our main class to tell Spring: "Hey, start everything from here!"
+----
+
+*3_Application_Properties*
+Imagine you have a toy with settings: volume, brightness, etc. "Application Properties" is where we set those configurations. It's usually a file named application.properties or application.yml.
+
+```properties
+
+server.port=8081
+spring.datasource.url=jdbc:mysql://localhost:3306/toydb
+```
+----
+
+*4_Web_Layer_Controller*
+
+Controllers in a Spring Boot application are responsible for handling incoming HTTP requests, invoking the necessary business logic (usu. delegated to Services), and returning the appropriate HTTP response. They are the entry points for the client-side (like web browsers, mobile apps, etc.) to interact with your backend application.
+
+In Spring Boot, controllers are the components responsible for handling incoming HTTP requests and responding with data or views.
+
+In Spring Boot, controllers are usually classes annotated with @Controller or @RestController. The primary difference is that @RestController assumes you're building a RESTful web service and will automatically serialize your return values to JSON.
+
+@Controller vs @RestController
+@Controller: This is a traditional Spring MVC annotation that denotes the class as a web controller. When using this annotation, you typically pair it with @ResponseBody on methods to signify that the return value should be bound to the web response body.
+
+@RestController: This is a specialized version of the @Controller annotation that assumes @ResponseBody semantics on all methods. It's a convenience annotation for creating RESTful controllers.
+
+Here's a basic example of a UserController:
+
+```java
+
+@RestController
+@RequestMapping("/api/users")
+public class UserController {
+
+    @Autowired
+    private UserService userService; // Assuming we have a UserService for business logic
+
+    @GetMapping("/{id}")
+    public ResponseEntity<UserDTO> getUserById(@PathVariable Long id) {
+        User user = userService.getUserById(id);
+        return new ResponseEntity<>(userService.convertToDTO(user), HttpStatus.OK);
+    }
+
+    @PostMapping
+    public ResponseEntity<UserDTO> createUser(@RequestBody UserDTO userDTO) {
+        User user = userService.createUser(userService.convertToEntity(userDTO));
+        return new ResponseEntity<>(userService.convertToDTO(user), HttpStatus.CREATED);
+    }
+
+    // ... other CRUD operations ...
+}
+```
+
+```
+@RestController
+@RequestMapping("/users")
+public class UserController {
+
+    @Autowired
+    private UserService userService;
+
+    @GetMapping("/{id}")
+    public ResponseEntity<UserDTO> getUser(@PathVariable Long id) {
+        User user = userService.findById(id);
+        UserDTO userDTO = modelMapper.map(user, UserDTO.class);
+        return ResponseEntity.ok(userDTO);
+    }
+}
+```
+Annotations explained:
+
+`@RestController`: This is a specialized version of @Controller that assumes you're always returning data directly to the client and not a view. This tells Spring Boot that this class is a controller that should handle web requests. It's typically used for REST APIs. All methods in the class annotated with @RestController will have their return values automatically serialized to JSON.
+
+`@RequestMapping("/api/users")`: This sets the base URL path for this controller. All methods in this controller will have their paths relative to this base path. This annotation is used to map web requests to specific handler classes or handler methods. In this example, all methods in UserController will have a URL that starts with `/users`.
+
+`@GetMapping`, `@PostMapping`: These are shorthand annotations specifying the HTTP method the method should respond to. There are others like @PutMapping, @DeleteMapping, etc.
+`@GetMapping` is a specialized version of `@RequestMapping` that acts as a shortcut for `@RequestMapping(method = RequestMethod.GET)`
+
+`@PathVariable`: This captures the value from the URL path. In the above example, if the client sends a request to /api/users/1, the id parameter in getUserById method will be set to 1.
+
+`@RequestBody`: This annotation indicates that a method parameter should be bound to the body of the web request.
+----
+
+*5_Service_Layer*
+----
+The Service layer is the heart of the business logic. On a trigger from Controller endpoint, it usually interacts with the data layer (repositories) and any other required services, performs necessary computations, transformations, and produces results, i.e. fetch or persist data
+
+While technically any class can be a service, it's a good practice to use the @Service annotation to denote such classes. This is more for semantics and clarity than functionality, as @Service is a specialization of the @Component annotation, making it eligible for component scanning
+
+A service might look like this:
+
+```java
+
+@Service
+public class UserService {
+
+    @Autowired
+    private UserRepository userRepository;  // Assuming we have a UserRepository for data operations
+    @Autowired
+    private ModelMapper modelMapper;
+
+    public User getUserById(Long id) {
+        return userRepository.findById(id).orElse(null);
+    }
+
+    public User createUser(User user) {
+        return userRepository.save(user);
+    }
+
+    // Conversion methods, other business logic...
+
+}
+```
+
+```java
+@Service
+public class UserService {
+
+    @Autowired
+    private UserRepository userRepository;
+
+    public User findById(Long id) {
+        return userRepository.findById(id).orElse(null);
+    }
+}
+```
+
+Annotations explained:
+
+`@Service`: This annotation marks the class as a service in Spring's context, making it available for autowiring.
+Note: The separation between the Controller, Service, and Data layers helps in maintaining a clean architecture, separating concerns, and ensuring scalability.
+----
+
+*6_Data_Layer*
+The data layer is responsible for interacting with databases or other data storage mechanisms.
+
+Repositories in Spring Boot usually interface with a database, and by extending certain Spring Data JPA interfaces (like JpaRepository), they get a lot of CRUD functionality out of the box.
+
+The Data Layer, typically consisting of repositories, interacts with the database. Spring Data JPA provides a convenient way to define repositories without having to write a lot of boilerplate code.
+
+```java
+
+public interface UserRepository extends JpaRepository<User, Long> {
+    // Custom query methods, if any, can be added here.
+}
+```
+By extending JpaRepository, you get many CRUD operations out of the box. In this example, by extending JpaRepository, UserRepository inherits methods for saving, deleting, and finding User entities.
+ If you need custom database operations, you can define methods in this interface, and Spring Data JPA will implement them for you based on the method name
+
+Regarding JpaRepository: The reason you "get CRUD methods out of the box" is that JpaRepository provides default implementations for common CRUD operations (like save, find, delete). You don’t have to implement these yourself; Spring Boot handles it for you. The actual HTTP endpoints (GET, POST, etc.) are still defined in your Controllers.
+
+This layer interacts directly with the database. Spring Boot simplifies database interactions with Spring Data JPA.
+
+6.1 Annotations:
+@Repository: Used to indicate that a class is a repository. Like @Service, this is a specialization of @Component.
+
+@Entity: As already covered, this marks a class as an entity, representing a table in the database.
+
+@Table: Allows you to specify the details of the table that will be used to persist the entity in the database.
+
+@Column: Used to specify details of the column to which a field will be mapped.
+
+Example with more fields:
+
+```java
+
+@Entity
+@Table(name = "users")
+public class User {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(name = "user_name")
+    private String userName;
+
+    @Column(name = "email_address")
+    private String emailAddress;
+    
+    // ... getters, setters, etc. ...
+}
+```
+
+----
+
+*7_Beans*
+
+Beans in Spring are simply Java objects that are instantiated and managed by the Spring container. They can be explicitly defined using the @Bean annotation in a Configuration class or implicitly through annotations like @Service, @Repository, @Controller, etc.
+
+Beans are objects managed by the Spring container. You can define beans in several ways:
+
+Annotating the class with @Component, @Service, @Repository, or @Controller/@RestController.
+
+Using the @Bean annotation within a @Configuration class.
+
+The @Configuration class we discussed earlier is a way to explicitly define beans. Another common approach is component scanning, where Spring automatically discovers beans based on annotations
+
+```java
+
+@Configuration
+public class AppConfig {
+    @Bean
+    public ToyManager toyManager() {
+        return new ToyManager();
+    }
+}
+```
+----
+
+*8_Autoconfiguration*
+Spring Boot's auto-configuration is a powerful feature that automatically configures your application based on the libraries on its classpath. It reduces the need for specifying beans in your configuration. If you have the Spring web starter on your classpath, Spring Boot automatically configures and registers a Tomcat server, for instance
+
+So, if it sees database libraries, it thinks, "Ah! I should set up database connectivity."
+
+Auto-configuration attempts to guess and configure beans based on the libraries you have in your project. For example, if you have H2 and Spring Data JPA, it'll configure an in-memory database for you. There are numerous auto-configurations, covering web servers, data sources, JPA settings, etc.
+
+Spring Boot's auto-configuration is a feature that automatically configures your application based on the libraries on the classpath. For example, if Spring Boot sees you have a H2 database library on your classpath, it will automatically configure an in-memory database for you.
+
+This feature can differentiate between different libraries. When you add a starter (like spring-boot-starter-data-jpa), it includes specific libraries. Based on these libraries, Spring Boot's auto-configuration kicks in to provide default setups.
+
+Component scanning in Spring Boot is the process by which the framework automatically discovers and registers beans in the application context based on specific annotations. This avoids the need for manually registering each bean with the container.
+
+Here's how component scanning works and the ways in which beans can be discovered:
+
+a. Default Component Scanning:
+By default, when you create a Spring Boot application using the @SpringBootApplication annotation, Spring Boot will scan all packages and sub-packages starting from the package where your main application class (the one annotated with @SpringBootApplication) is located.
+
+For instance, if your main application class is in the package com.example.app, then Spring Boot will scan all components under com.example.app and its sub-packages.
+
+b. Specifying Base Packages:
+You can customize the component scanning by specifying which packages Spring should scan using the basePackages attribute of the @ComponentScan annotation.
+
+```java
+
+@SpringBootApplication
+@ComponentScan(basePackages = {"com.example.services", "com.example.controllers"})
+public class MyApplication {
+    //...
+}
+```
+This tells Spring Boot to only scan for components in the com.example.services and com.example.controllers packages.
+
+c. Using Filters:
+You can also include or exclude specific components during the scanning process using filters with the @ComponentScan annotation.
+
+```java
+
+@ComponentScan(basePackages = "com.example",
+              excludeFilters = @Filter(type = FilterType.ANNOTATION, value = SomeAnnotation.class))
+public class MyApplication {
+    //...
+}
+```
+d. Discovering Beans through Annotations:
+Components that should be discovered during scanning typically have one of the following annotations:
+
+@Component: General-purpose stereotype annotation indicating that the class is a Spring component.
+@Service: Indicates that the class is a service component.
+@Repository: Indicates that the class is a data repository.
+@Controller or @RestController: Indicates that the class is a web controller.
+
+e. Through Spring Boot Starters:
+While not direct "component scanning", Spring Boot starters, when added as dependencies in your pom.xml, can bring in auto-configurations that automatically register certain beans if conditions are met. For instance, if you have the Spring Web starter and a Tomcat library on your classpath, a Tomcat web server will be auto-configured.
+
+f. Java Configuration:
+Beans can be defined manually in Java configuration classes annotated with @Configuration. Inside such classes, you can use the @Bean annotation on methods to define beans.
+
+```java
+
+@Configuration
+public class AppConfig {
+
+    @Bean
+    public SomeService someService() {
+        return new SomeServiceImpl();
+    }
+
+}
+```
+
+g. XML Configuration:
+While not as commonly used in modern Spring Boot applications (which favor Java-based configuration), beans can also be defined in XML configuration files. If you use XML configurations, you'd need to specify which XML files to load.
+
+Tips for Effective Component Scanning:
+Be Cautious with Package Structure: If your main application class is too high in the package hierarchy, Spring might scan a lot of unnecessary packages, slowing down the startup.
+Avoid Ambiguity: Ensure that no two beans of the same type can be picked up during scanning unless you're explicitly using qualifiers or names to differentiate them.
+
+Use Profiles for Conditional Beans: If certain beans should only be active under specific conditions, consider using Spring profiles.
+
+Always remember, component scanning is a powerful feature but should be used judiciously to keep the application context clean and the startup time optimal.
+
+The mechanism driving auto-configuration is a combination of:
+
+Conditional annotations like @ConditionalOnClass, @ConditionalOnBean, @ConditionalOnProperty, etc.
+spring.factories files inside the META-INF directory of libraries.
+You can influence auto-configuration with properties in application.properties or application.yml.
+
+For debugging purposes, to see what auto-configurations are applied or not, you can start your application with the --debug flag.
+
+----
+
+*9_Profiles*
+
+Profiles let you segregate parts of your application configuration and make it available only in certain environments. You can have profile-specific properties files (application-dev.properties) or use @Profile on beans or configurations.
+
+Use the @Profile annotation on @Configuration classes or @Component beans to indicate when they should be loaded.
+
+You might have certain beans that should only be instantiated in a development environment or specific configurations for production.
+
+```java
+
+@Configuration
+@Profile("dev")
+public class DevConfig {
+    // Beans and settings for the "dev" mode.
+}
+```
+
+You can activate profiles via the spring.profiles.active property or through environment variables.
+
+----
+
+*10_Logging*
+This is like the toy's voice or sounds. It tells us what it's doing. In Spring Boot, we can easily set up how and where our application should "speak".
+
+```properties
+
+logging.level.org.springframework=DEBUG
+logging.file.name=app.log
+```
+
+Alright, we're getting into deeper waters, but I'll try to keep it fun and simple. Let me know if you're following along, and if you'd like me to continue!
+----
+
+*11_AOP*(Aspect-Oriented Programming)
+Think of AOP as automatic reminders in a toy. Imagine every time you press a button, the toy reminds you to wash your hands. You didn't program every button to say that; it's just a common reminder added to all button functions. In Spring, AOP lets us add common functionalities to multiple parts without changing their actual code.
+
+```java
+
+@Aspect
+@Component
+public class ReminderAspect {
+    
+    @Before("execution(* com.toy.store.*.*(..))")
+    public void remind() {
+        System.out.println("Remember to wash your hands!");
+    }
+}
+```
+
+`@Aspect` tells Spring: "Hey, this is a special class that contains reminders (or common functionalities)."
+----
+
+*12_Spring_Security*
+Imagine your toy has a secret compartment that only opens with a password. Spring Security ensures that only authorized users can access certain parts of our app.
+
+```java
+
+@Configuration
+@EnableWebSecurity
+public class SecurityConfig extends WebSecurityConfigurerAdapter {
+    @Override
+    protected void configure(HttpSecurity http) throws Exception {
+        http.authorizeRequests()
+            .antMatchers("/admin/**").hasRole("ADMIN")
+            .anyRequest().authenticated()
+            .and().formLogin();
+    }
+}
+```
+----
+
+*13_Spring_Data_JPA*
+
+Spring Data JPA (Java Persistence API) allows you to persist data between Java objects/classes and relational databases. It provides a way to reduce the boilerplate code required to implement data access layers.
+
+Entities: Annotated with @Entity, they represent tables in your database.
+Repositories: Extend Spring Data JPA interfaces (like JpaRepository) to get CRUD methods without any implementation.
+The transformation between database tables and Java entities is often done through annotations like @Entity, @Table, @Column, etc.
+
+JPA (Java Persistence API) lets our application remember (persist) data easily, without needing to write a lot of code.
+
+```java
+
+@Entity
+public class Toy {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+    private String name;
+    private Date Manufactored;
+    // ... additinoal fields
+    // ... getters, setters, etc...
+}
+```
+You can define as many fields as you need in your Toy entity. Each field typically maps to a column in your database table
+
+----
+*13a_DataTransferObject_DTO*
+DTO stands for Data Transfer Object. It is used to transfer data between processes. While your User entity might contain all fields in your database, there could be scenarios where you only want to send/receive a subset of these fields in your API. This is where DTOs come in handy.
+
+----
+*13b_ModelMapper*
+ModelMapper is a library that provides a simple way to map data between Java objects. It's particularly useful when you're dealing with layered architectures and need to map between domain models and DTOs (Data Transfer Objects). In large-scale applications, it's common to have different representations of an object for different layers (e.g., an entity for the database and a DTO for the API response). Manually writing code to transform between these can be tedious and error-prone, especially when the models have many fields.
+
+What does ModelMapper represent?
+Class Type: ModelMapper is a class provided by the ModelMapper library.
+
+Object: When you instantiate ModelMapper using new ModelMapper(), you create an object of type ModelMapper. This object provides methods to perform the actual mapping between objects.
+
+Bean in Spring Context: By defining it as a bean in the configuration (using @Bean annotation), you're making a single instance of ModelMapper available for injection throughout your Spring application. This is useful because you often want to centralize the configuration of the model mapping (e.g., specific conventions, custom mappings) and reuse the same mapper instance everywhere.
+
+Example:
+Imagine you have an User entity:
+
+java
+Copy code
+@Entity
+public class User {
+    private Long id;
+    private String name;
+    private String email;
+    // ... getters, setters ...
+}
+And a UserDTO for API responses:
+
+java
+Copy code
+public class UserDTO {
+    private Long id;
+    private String fullName;
+    private String emailAddress;
+    // ... getters, setters ...
+}
+Notice the slight differences: the name field in User corresponds to fullName in UserDTO, and email in User corresponds to emailAddress in UserDTO.
+
+With ModelMapper, you can easily map between these two without manually writing the transformation logic:
+
+java
+Copy code
+@Autowired
+private ModelMapper modelMapper;
+
+public UserDTO convertToDTO(User user) {
+    return modelMapper.map(user, UserDTO.class);
+}
+
+public User convertToEntity(UserDTO dto) {
+    return modelMapper.map(dto, User.class);
+}
+You can also customize the mapping behavior if needed, by defining custom converters, specifying field matching strategies, and more.
+
+In essence, ModelMapper abstracts and simplifies the often repetitive and boilerplate-heavy task of mapping between similar object structures, allowing developers to focus on more complex and unique parts of their applications
+
+The convertToDTO and convertToEntity methods would typically reside in a separate layer/class known as a "service" or a "mapper" class. These classes are responsible for handling the transformation logic.
+
+Here's a breakdown:
+
+Service Class: If these conversion methods are part of a broader set of business logic associated with users (like registration, updating profiles, etc.), they might belong to a UserService class.
+
+java
+Copy code
+@Service
+public class UserService {
+
+    @Autowired
+    private ModelMapper modelMapper;
+
+    public UserDTO convertToDTO(User user) {
+        return modelMapper.map(user, UserDTO.class);
+    }
+
+    public User convertToEntity(UserDTO dto) {
+        return modelMapper.map(dto, User.class);
+    }
+
+    // Other business logic methods related to User operations
+}
+Dedicated Mapper Class: In larger applications, it's common to have dedicated mapper classes to separate the mapping logic from business logic. This makes the code modular and easier to maintain.
+
+java
+Copy code
+@Component
+public class UserMapper {
+
+    @Autowired
+    private ModelMapper modelMapper;
+
+    public UserDTO convertToDTO(User user) {
+        return modelMapper.map(user, UserDTO.class);
+    }
+
+    public User convertToEntity(UserDTO dto) {
+        return modelMapper.map(dto, User.class);
+    }
+}
+In this case, the UserMapper class is only responsible for transformations between entities and DTOs. Other business operations related to users would still belong to a separate UserService class.
+
+In either approach, by organizing your code in this manner, you separate concerns, making the application easier to maintain and understand.
+
+----
+*13c_Configuration*
+The @Configuration classes are meant for configuring beans and services that your application needs. You might not configure every single domain object there, but primarily services, repositories, data sources, and other utilities (like the ModelMapper).
+ModelMapper is a library that simplifies the process of transforming data from one object type to another, typically used between entities and DTOs.
+
+----
+
+*14_Caching*
+
+This is like the toy's ability to remember your last action so you can continue from there. Caching means storing results of expensive operations so we can quickly retrieve them later.
+
+Spring Boot provides support for caching out of the box. The cache abstraction allows consistent use of various caching solutions with minimal impact on the code.
+
+Use the @EnableCaching annotation to activate caching, and then use @Cacheable on methods to cache their results
+
+```java
+
+@Service
+public class ToyService {
+    @Cacheable("toys")
+    public List<Toy> findAllToys() {
+        // Logic to fetch all toys
+    }
+}
+```
+
+```java
+@Service
+@EnableCaching
+public class MyService {
+
+    @Cacheable("items")
+    public String getItem() {
+        // ...
+    }
+}
+```
+
+----
+
+*15_Messaging*
+Imagine your toy can send and receive messages with other toys. Spring provides tools to send and process messages, which is useful for communicating between different parts of an app.
+
+```java
+
+@Component
+public class ToyMessageListener {
+    @JmsListener(destination = "toy.queue")
+    public void processMessage(String content) {
+        // Handle the message
+    }
+}
+```
+----
+
+*16_RESTful_Web_Services*
+Think of this as a universal remote control for your toy that even other toys can use. RESTful services let other apps (or even other parts of the same app) interact with our toy.
+
+```java
+
+@RestController
+public class ToyController {
+    @GetMapping("/toys/{id}")
+    public Toy getToyById(@PathVariable Long id) {
+        // Return a toy based on the given id
+    }
+}
+```
+----
+
+*17_Spring_Boot_Actuator*
+Actuator is like a special remote that not only controls the toy but also checks if the toy is working fine, how much battery it has left, etc. It gives us insights into the application's health and other metrics.
+
+Actuators provide production-ready features for Spring Boot applications. They expose operational information about the running application, like health, metrics, info, dump, env, etc. It's essentially a set of tools helpful for monitoring and managing production applications.
+
+Add this to bring Actuator capabilities:
+
+```xml
+
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-actuator</artifactId>
+</dependency>
+```
+----
+
+*18_Spring_Boot_DevTools*
+
+Imagine if your toy could automatically get new features without needing manual updates. DevTools helps developers by auto-reloading changes and enhancing the development process.
+
+DevTools provides fast application restarts, live reload, and configurations for enhanced development experience. It watches for changes in your classpath and automatically restarts the application when needed.
+
+```xml
+
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-devtools</artifactId>
+    <scope>runtime</scope>
+</dependency>
+```
+
+This was a handful! I hope the toy analogy is helping. Let me know if you're ready for the next set of components!
+----
+
+*19_WebSockets_with_Spring_Boot*
+
+Spring Boot supports WebSockets, which provide a full-duplex communication channel over a single, long-lived connection. You can annotate Spring components with @Controller and use annotations like @MessageMapping to handle WebSocket traffic.
+
+WebSockets enable real-time, two-way communication. Imagine a toy that can chat with other toys in real-time without pressing any button repeatedly. It just instantly responds.
+
+```java
+
+@Configuration
+@EnableWebSocketMessageBroker
+public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
+
+    @Override
+    public void configureMessageBroker(MessageBrokerRegistry config) {
+        config.enableSimpleBroker("/topic");
+        config.setApplicationDestinationPrefixes("/app");
+    }
+
+    @Override
+    public void registerStompEndpoints(StompEndpointRegistry registry) {
+        registry.addEndpoint("/chat").withSockJS();
+    }
+}
+```
+----
+
+*20_Spring_Boot_Admin*
+It's like having a command center toy where you can see the status and details of all other toys. It provides a UI for the admin tasks and monitoring.
+
+```xml
+
+<dependency>
+    <groupId>de.codecentric</groupId>
+    <artifactId>spring-boot-admin-starter-server</artifactId>
+    <version>2.5.0</version>
+</dependency>
+```
+----
+
+*21_Spring_Profiles*
+Imagine you have a toy that behaves differently in the bedroom vs. in the garden. Spring Profiles lets our app have different configurations for different environments (e.g., development, testing, production).
+
+```java
+
+@Configuration
+@Profile("dev")
+public class DevConfig {
+    // Beans and configurations for development environment
+}
+```
+Profiles allow you to have different configurations based on the environment (dev, test, prod). You can activate a profile using application properties or command-line arguments.
+To include or exclude beans based on profiles, you can use the @Profile annotation. The beans under a specific @Profile will only be created when that profile is active.
+----
+
+*22_Spring_Batch*
+This is like having a toy assembly line. Let's say you want to color 100 toys. Instead of coloring each toy one-by-one, you just put all toys on the assembly line, and they get colored automatically in batches. Spring Batch is about processing data in large chunks.
+
+Spring Batch is a framework for batch processing. It's not directly tied to Spring Boot, but Spring Boot does provide a lot of auto-configuration for it. The name of the batch job doesn't become batchprocessing due to any annotation. Instead, you define jobs and steps that detail what the batch processing should do.
+
+```java
+
+@Configuration
+@EnableBatchProcessing
+public class BatchConfig {
+
+    @Autowired
+    public JobBuilderFactory jobBuilderFactory;
+
+    @Autowired
+    public StepBuilderFactory stepBuilderFactory;
+
+    @Bean
+    public Step step1() {
+        return stepBuilderFactory.get("step1")
+            .tasklet((contribution, chunkContext) -> {
+                // logic
+                return RepeatStatus.FINISHED;
+            })
+            .build();
+    }
+}
+```
+----
+
+*23_Property_Configuration*
+Remember how some toys have settings like volume or language? This is similar. We define settings for our app that can be changed without altering the app's code.
+
+This file is where you define configurations for your Spring Boot application. Using @Value annotations, you can directly inject properties into your beans.
+
+In application.properties:
+
+```properties
+
+toy.volume=10
+toy.language=en
+```
+Then in our code:
+
+```java
+
+@Value("${toy.volume}")
+private int volume;
+```
+
+*24_Spring_Cloud*
+
+Spring Cloud provides tools for developers to build cloud-native apps. The Eureka Server is an application that holds the information about all client-service applications. Every microservice registers into the Eureka server so that services can talk to each other and heal itself when something goes wrong. Spring Cloud offers tools for building large-scale and resilient apps.
+
+
+For example, to build a toy service that can find other toy services:
+
+Eureka is a service discovery tool. Services register with Eureka, and clients query Eureka to find services.
+
+```java
+
+@SpringBootApplication
+@EnableEurekaServer
+public class EurekaServerApplication {
+    public static void main(String[] args) {
+        SpringApplication.run(EurekaServerApplication.class, args);
+    }
+}
+```
+To bring in Eureka capabilities:
+
+```xml
+
+<dependency>
+    <groupId>org.springframework.cloud</groupId>
+    <artifactId>spring-cloud-starter-netflix-eureka-server</artifactId>
+</dependency>
+```
+----
+*25_ResponseEntity*
+ResponseEntity:
+
+`@ResponseEntity` represents the entire HTTP response. It lets you customize the response status code, headers, and body. It gives more control over the HTTP response compared to just returning an object from a @RestController method.
+Other similar objects include HttpHeaders (to set custom headers), HttpStatus (to specify status codes), etc.
+
+----
+*26_Test*
+
+The @Test annotation is from JUnit and denotes a method as a test method.
+Spring Boot’s @SpringBootTest is used for integration tests and will start up the whole application context.
+Tests can be done in both TDD (Test-Driven Development) and BDD (Behavior-Driven Development) fashions. For BDD-style testing, you can use libraries like Cucumber in combination with Spring Boot.
+
+----
+
+That completes our journey through the vast world of Spring Boot using our toy analogy. Remember, this is a simplification, and the real world is much more complex. But I hope this gave you a playful and approachable perspective on the matter! Would you like to dive deeper into any specific area or proceed with something else?
+
